@@ -2,6 +2,7 @@
 
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -139,6 +140,62 @@ class CliTests(unittest.TestCase):
         with contextlib.redirect_stderr(err):
             rc = main(["definitely-not-here.png"])
         self.assertEqual(rc, 2)
+
+
+class VideoTests(unittest.TestCase):
+    def test_assemble_gif_keeps_every_frame(self):
+        from wechat_sticker_kit import assemble_gif
+
+        frames = [make_image(120, 120, (i * 30, 90, 200)) for i in range(6)]
+        data = assemble_gif(frames, fps=10)
+        self.assertTrue(data.startswith(b"GIF8"))
+        with Image.open(io.BytesIO(data)) as im:
+            self.assertEqual(im.n_frames, 6)
+
+    def test_frames_squeeze_under_budget(self):
+        from wechat_sticker_kit import frames_to_sticker
+
+        frames = [noisy(240, 240) for _ in range(8)]
+        data, note = frames_to_sticker(frames, fps=12, budget=80 * 1024)
+        self.assertLessEqual(len(data), 80 * 1024)
+        self.assertIsInstance(note, str)
+
+    def test_missing_ffmpeg_raises_with_hint(self):
+        from wechat_sticker_kit import StickerError, video_to_gif
+
+        old = os.environ.get("WXSTICKER_FFMPEG")
+        os.environ["WXSTICKER_FFMPEG"] = "definitely-missing-ffmpeg.exe"
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                with self.assertRaises(StickerError) as ctx:
+                    video_to_gif("whatever.mp4", Path(tmp) / "o.gif")
+            self.assertIn("WXSTICKER_FFMPEG", str(ctx.exception))
+        finally:
+            if old is None:
+                os.environ.pop("WXSTICKER_FFMPEG", None)
+            else:
+                os.environ["WXSTICKER_FFMPEG"] = old
+
+    def test_cli_video_without_ffmpeg_fails_cleanly(self):
+        import contextlib
+
+        old = os.environ.get("WXSTICKER_FFMPEG")
+        os.environ["WXSTICKER_FFMPEG"] = "definitely-missing-ffmpeg.exe"
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp = Path(tmp)
+                clip = tmp / "clip.mp4"
+                clip.write_bytes(b"\x00\x00\x00\x18ftypmp42")
+                err = io.StringIO()
+                with contextlib.redirect_stderr(err):
+                    rc = main([str(clip), "-o", str(tmp / "out"), "-q"])
+                self.assertEqual(rc, 1)
+                self.assertIn("WXSTICKER_FFMPEG", err.getvalue())
+        finally:
+            if old is None:
+                os.environ.pop("WXSTICKER_FFMPEG", None)
+            else:
+                os.environ["WXSTICKER_FFMPEG"] = old
 
 
 if __name__ == "__main__":

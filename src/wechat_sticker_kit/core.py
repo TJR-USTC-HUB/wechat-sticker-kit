@@ -22,6 +22,7 @@ OUTPUT_FORMATS = ("png", "jpg", "gif")
 
 #: byte budgets, the first one is what WeChat itself enforces
 BUDGETS = {
+    "gif": 1024 * 1024,        # 动图表情常见上限 1 MB
     "chat": 5 * 1024 * 1024,   # 微信「添加的单个表情」上限 5 MB
     "platform": 500 * 1024,    # 微信表情开放平台主图建议 <= 500 KB
     "tiny": 100 * 1024,        # 聊天列表 / 老设备友好

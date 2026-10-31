@@ -90,6 +90,30 @@ wide-shot.jpg                    -> wide-shot.png          240x240    64.1 KB  [
 
 超限时的降级顺序（自动，按顺序尝试）：直接保存 → 减色板 256/128/64/32 色 → 降 JPEG 质量 88→40 → 逐步缩小 10%，直到塞进预算。返回的 `note` 会写明牺牲了什么。
 
+## 视频转 GIF 表情
+
+视频默认走 GIF 通道（微信的动图表情上限通常按 1 MB 算，工具会自动压到这个预算内）。
+
+```bash
+wxsticker clip.mp4                       # 前 5 秒 -> stickers/clip.gif，240 宽，12fps
+wxsticker clip.mp4 --start 3.2 --duration 2.5 --fps 15
+wxsticker clip.mov -s 240 --no-dither     # 关抖动，更小但可能有色带
+```
+
+需要 `ffmpeg`：装了 `imageio-ffmpeg` 的话会自动用它内置的二进制；都没有就 `pip install "wechat-sticker-kit[video]"`，或者用 `WXSTICKER_FFMPEG=/path/to/ffmpeg` 指定。
+
+解码交给 ffmpeg，调色板和 GIF 组装由 Pillow 负责——这样帧数、颜色数、抖动都在我们手里，能保证输出一定塞进预算。压不下时的降级顺序：减色板 → 隔帧丢弃 → 缩放。
+
+## 加不进表情？先看这个
+
+| 现象 | 大概率原因 | 处理 |
+| --- | --- | --- |
+| 长按图片没有「添加到表情」 | 图是以**文件**形式发的，不是图片消息 | 先发出去（当图片发），再长按 |
+| 「添加的单个表情」里选不到 | 从相册选，文件传输助手的图没进相册 | 长按图片 → 保存到相册，再去选 |
+| 提示图片太大 | 静态图个别版本限制很严（远低于 5 MB） | `-b tiny` 压到 100 KB 以内 |
+| 添加后变形/被裁 | 非正方形被面板按方形显示 | 用 `-m pad` 或 `-m cover` 输出正方形 |
+| GIF 变成静图 | 超过动图体积上限 | `-b gif`（1 MB）或降低 `--fps` |
+
 ## 当库用
 
 ```python
@@ -123,7 +147,7 @@ print(note or "no compression needed")
 
 ## English
 
-Convert any PNG/JPG into a WeChat-ready sticker: square canvas, 240×240 preset, automatic squeezing under the 5 MB (or 500 KB) limit, batch mode, EXIF-corrected, metadata stripped.
+Convert PNG/JPG images **and videos** into WeChat-ready stickers: square canvas, 240×240 preset, video→GIF (ffmpeg), automatic squeezing under the 1 MB / 5 MB / 500 KB budget, batch mode, EXIF-corrected, metadata stripped.
 
 ```bash
 pip install wechat-sticker-kit
