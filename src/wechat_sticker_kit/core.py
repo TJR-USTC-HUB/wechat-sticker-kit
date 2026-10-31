@@ -103,6 +103,9 @@ def _background(im: Image.Image, size: int, anchor: float, style: str, fill) -> 
         # darken a little so the pasted picture always reads on top
         return bg.point(lambda v: int(v * 0.72))
 
+    if style == "transparent":
+        return Image.new("RGBA", (size, size), (0, 0, 0, 0))
+
     if fill is None:
         fill = _edge_color(im)
     return Image.new("RGB", (size, size), tuple(fill))
@@ -122,6 +125,7 @@ def to_square(
         cover  fill the square, crop the overflow (best for memes)
         pad    keep the whole picture, fill the sides with a blurred backdrop
         fit    keep the whole picture, fill the sides with a flat colour
+        ...    pass bg="transparent" to any of them for a transparent backdrop
         keep   do not square at all, just cap the longest side at size
     """
     if mode not in ("cover", "pad", "fit", "keep"):
@@ -142,7 +146,12 @@ def to_square(
     if mode == "cover":
         return ImageOps.fit(im, (size, size), Image.LANCZOS, centering=(0.5, float(anchor_y)))
 
-    style = "blur" if (mode == "pad" and bg == "blur") else "flat"
+    if bg == "transparent":
+        style = "transparent"
+    elif mode == "pad" and bg == "blur":
+        style = "blur"
+    else:
+        style = "flat"
     canvas = _background(im, size, float(anchor_y), style, fill).convert("RGBA")
     w, h = im.size
     scale = min(size / float(w), size / float(h))

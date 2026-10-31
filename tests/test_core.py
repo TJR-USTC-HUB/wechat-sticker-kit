@@ -51,6 +51,13 @@ class SquareTests(unittest.TestCase):
         out = to_square(make_image(1000, 500, (10, 20, 30)), size=240, mode="fit", fill=(255, 255, 0))
         self.assertEqual(out.convert("RGB").getpixel((2, 2)), (255, 255, 0))
 
+    def test_transparent_backdrop(self):
+        out = to_square(make_image(1000, 500, (30, 90, 160)), size=240, mode="pad", bg="transparent")
+        self.assertEqual(out.size, (240, 240))
+        self.assertEqual(out.mode, "RGBA")
+        self.assertEqual(out.getpixel((2, 2))[3], 0)      # the pad is fully transparent
+        self.assertGreater(out.getpixel((120, 120))[3], 0)  # the picture itself stays opaque
+
     def test_cover_keeps_alpha(self):
         out = to_square(make_image(600, 600, (0, 0, 0), alpha=True), size=240, mode="cover")
         self.assertIn(out.mode, ("RGBA", "LA", "P"))

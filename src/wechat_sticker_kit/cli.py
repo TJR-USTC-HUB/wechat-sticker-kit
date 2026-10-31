@@ -82,7 +82,8 @@ def build_parser():
     p.add_argument("-b", "--budget", default=None, type=_parse_budget,
                    help="byte budget: gif (1 MB), chat (5 MB), platform (500 KB), tiny (100 KB), or 800kb")
     p.add_argument("--max-kb", type=float, default=None, help="shortcut for --budget, in KB")
-    p.add_argument("--bg", default="blur", help="backdrop for pad/fit: blur, auto, #rrggbb")
+    p.add_argument("--bg", default="blur",
+                   help="backdrop for pad/fit: blur, auto, transparent, #rrggbb")
     p.add_argument("--anchor", default="center", choices=("center", "top", "bottom", "face"),
                    help="where to anchor the square crop (default: center)")
     p.add_argument("-r", "--recursive", action="store_true", help="walk folders recursively")
@@ -116,7 +117,7 @@ def main(argv=None) -> int:
 
     bg = args.bg
     fill = None
-    if bg not in ("blur", "auto"):
+    if bg not in ("blur", "auto", "transparent"):
         try:
             fill = _parse_color(bg)
         except argparse.ArgumentTypeError as exc:

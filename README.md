@@ -82,7 +82,7 @@ wide-shot.jpg                    -> wide-shot.png          240x240    64.1 KB  [
 | `-f, --format` | `png` | png / jpg / gif |
 | `-b, --budget` | `chat` | `chat`(5MB) / `platform`(500KB) / `tiny`(100KB) / `800kb` 这种写法 |
 | `--max-kb` | — | 直接用 KB 指定上限 |
-| `--bg` | `blur` | pad/fit 的背景：`blur` / `auto` / `#rrggbb` |
+| `--bg` | `blur` | pad/fit 的背景：`blur` / `transparent`（透明填充）/ `auto` / `#rrggbb` |
 | `--anchor` | `center` | 裁切重心 |
 | `-r, --recursive` | 关 | 递归子文件夹 |
 | `--dry-run` | 关 | 只看会输出什么，不写文件 |
