@@ -22,7 +22,7 @@ from .video import (
     video_to_gif,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "ANCHORS",

@@ -22,6 +22,13 @@
 
 常见问题：非方形的图在表情列表里被硬裁；原图几 MB 传不上去；透明 PNG 的边被吃掉；手机拍的图带 EXIF 方向翻转 90°。这个工具把这些一次性处理掉。
 
+## 支持的输入
+
+PNG / JPG / **WebP** / **AVIF** / APNG / HEIC / BMP / TIFF / GIF，以及 MP4 / MOV / MKV / WebM 等视频。
+
+AVIF 从 Pillow 11.3 起原生支持（本机是 12.3），HEIC 需要额外装 pillow-heif。
+扩展名和内容不一致也没关系（比如 CDN 下下来的 xxx.png@406w_270h_1s.avif）——解码靠内容嗅探，输出名会自动去掉 @406w_270h_1s 这类后缀。
+
 ## 安装
 
 ```bash

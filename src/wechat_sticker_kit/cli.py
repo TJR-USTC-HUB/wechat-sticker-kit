@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from . import __version__
-from .core import BUDGETS, INPUT_SUFFIXES, OUTPUT_FORMATS, Result, StickerError, convert_file
+from .core import BUDGETS, INPUT_SUFFIXES, OUTPUT_FORMATS, Result, StickerError, convert_file, safe_stem
 from .video import VIDEO_SUFFIXES, video_to_gif
 
 PRESET_SIZES = {240: "WeChat standard", 500: "high-res chat", 1000: "master copy"}
@@ -132,6 +132,7 @@ def main(argv=None) -> int:
     out_dir = Path(args.out)
     results = []
     failures = []
+    seen = {}
 
     for src in files:
         is_video = src.suffix.lower() in VIDEO_SUFFIXES
@@ -141,12 +142,17 @@ def main(argv=None) -> int:
         if args.dry_run:
             suffix = ".gif" if is_video else "." + args.format
             if not args.quiet:
-                print("%-40s -> %s (dry run)" % (src.name, out_dir / (src.stem + suffix)))
+                print("%-40s -> %s (dry run)" % (src.name, out_dir / (safe_stem(src.name) + suffix)))
             continue
+
+        stem = safe_stem(src.name)
+        count = seen.get(stem, 0) + 1
+        seen[stem] = count
+        suffix = "" if count == 1 else "-%d" % count
 
         try:
             if is_video:
-                dst = out_dir / (src.stem + ".gif")
+                dst = out_dir / (stem + suffix + ".gif")
                 _, nbytes, note, nframes = video_to_gif(
                     src, dst, size=args.size, fps=args.fps, start=args.start,
                     duration=args.duration, budget=file_budget, mode=args.mode,
@@ -160,6 +166,7 @@ def main(argv=None) -> int:
                     src, out_dir,
                     size=args.size, mode=args.mode, fmt=args.format,
                     budget=file_budget, anchor=args.anchor, bg=bg, fill=fill,
+                    suffix=suffix,
                 ))
         except (StickerError, ValueError, OSError) as exc:
             failures.append((src, str(exc)))

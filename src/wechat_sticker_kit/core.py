@@ -17,7 +17,10 @@ from typing import Optional, Tuple
 
 from PIL import Image, ImageFilter, ImageOps, UnidentifiedImageError
 
-INPUT_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".gif")
+INPUT_SUFFIXES = (
+    ".png", ".jpg", ".jpeg", ".webp", ".avif", ".apng",
+    ".heic", ".heif", ".bmp", ".tif", ".tiff", ".gif",
+)
 OUTPUT_FORMATS = ("png", "jpg", "gif")
 
 #: byte budgets, the first one is what WeChat itself enforces
@@ -51,6 +54,26 @@ class Result:
     @property
     def kb(self) -> float:
         return round(self.size / 1024, 1)
+
+
+def safe_stem(name: str) -> str:
+    """Sanitise a file name into a usable output stem.
+
+    CDN names such as 'x.png@406w_270h_1s.avif' or 'shot.png.webp' would
+    otherwise produce output like 'x.png@406w_270h_1s.gif'.
+    """
+    base = str(name).split("@", 1)[0]
+    exts = sorted({e for e in INPUT_SUFFIXES} | {".jpeg"}, key=len, reverse=True)
+    shrinking = True
+    while shrinking:
+        shrinking = False
+        low = base.lower()
+        for ext in exts:
+            if low.endswith(ext) and len(base) > len(ext):
+                base = base[: -len(ext)]
+                shrinking = True
+                break
+    return base or "sticker"
 
 
 def load_image(path):
@@ -273,9 +296,9 @@ def convert_file(
     sticker = to_square(im, size=size, mode=mode, anchor=anchor, bg=bg, fill=fill)
     data, note = encode(sticker, fmt=fmt, budget=budget)
 
-    dst = out_dir / ("%s%s.%s" % (src.stem, suffix, fmt))
+    dst = out_dir / ("%s%s.%s" % (safe_stem(src.name), suffix, fmt))
     if dst.resolve() == src.resolve():  # never eat the file we were given
-        dst = out_dir / ("%s%s-sticker.%s" % (src.stem, suffix, fmt))
+        dst = out_dir / ("%s%s-sticker.%s" % (safe_stem(src.name), suffix, fmt))
     dst.write_bytes(data)
     w, h = sticker.size
     return Result(src=src, dst=dst, width=w, height=h, size=len(data), fmt=fmt, note=note)

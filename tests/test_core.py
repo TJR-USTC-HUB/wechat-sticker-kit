@@ -218,5 +218,35 @@ class VideoTests(unittest.TestCase):
                 os.environ["WXSTICKER_FFMPEG"] = old
 
 
+class FormatTests(unittest.TestCase):
+    def test_safe_stem_strips_cdn_noise(self):
+        from wechat_sticker_kit.core import safe_stem
+
+        self.assertEqual(safe_stem("36212e93.png@406w_270h_1s.avif"), "36212e93")
+        self.assertEqual(safe_stem("shot.png.webp"), "shot")
+        self.assertEqual(safe_stem("plain.jpg"), "plain")
+
+    def _roundtrip(self, fmt):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / ("pic." + fmt)
+            try:
+                make_image(600, 400).save(src, fmt.upper())
+            except Exception as exc:  # codec missing on this build
+                self.skipTest("pillow cannot write %s: %s" % (fmt, exc))
+            res = convert_file(src, tmp / "out", size=240)
+            self.assertEqual(res.dst.suffix, ".gif")
+            with Image.open(res.dst) as im:
+                self.assertEqual(im.format, "GIF")
+                self.assertEqual(im.n_frames, 1)
+                self.assertEqual(im.size, (240, 160))
+
+    def test_webp_input(self):
+        self._roundtrip("webp")
+
+    def test_avif_input(self):
+        self._roundtrip("avif")
+
+
 if __name__ == "__main__":
     unittest.main()

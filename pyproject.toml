@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wechat-sticker-kit"
-version = "0.3.0"
+version = "0.3.1"
 description = "Turn PNG/JPG images and videos into WeChat-ready stickers: square crop, 240x240 preset, video to GIF, automatic size-limit squeezing."
 readme = "README.md"
 requires-python = ">=3.9"
