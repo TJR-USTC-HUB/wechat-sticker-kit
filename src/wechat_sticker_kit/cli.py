@@ -57,6 +57,15 @@ def _iter_inputs(paths, recursive):
             raise StickerError("no such file or directory: %s" % p)
 
 
+def _configure_stdio():
+    """Windows consoles default to cp936/cp1252; CJK paths would crash print()."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def build_parser():
     p = argparse.ArgumentParser(
         prog="wxsticker",
@@ -106,6 +115,7 @@ def build_parser():
 
 
 def main(argv=None) -> int:
+    _configure_stdio()
     args = build_parser().parse_args(argv)
     budget = args.budget if args.max_kb is None else int(args.max_kb * 1024)
 

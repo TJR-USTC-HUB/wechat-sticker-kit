@@ -43,6 +43,10 @@ def ffmpeg_path() -> str:
     if found:
         return found
 
+    for candidate in _common_ffmpeg_paths():
+        if candidate and Path(candidate).is_file():
+            return candidate
+
     try:  # optional dependency, ships a static build
         import imageio_ffmpeg  # type: ignore
 
@@ -51,6 +55,17 @@ def ffmpeg_path() -> str:
         pass
 
     raise StickerError(INSTALL_HINT)
+
+
+def _common_ffmpeg_paths():
+    """Places package managers drop ffmpeg on without touching PATH."""
+    paths = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", "/snap/bin/ffmpeg"]
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            paths.append(str(Path(local) / "Microsoft" / "WinGet" / "Links" / "ffmpeg.exe"))
+        paths += [r"C:\ffmpeg\bin\ffmpeg.exe", r"C:\Program Files\ffmpeg\bin\ffmpeg.exe"]
+    return paths
 
 
 def probe_duration(path, ffmpeg: Optional[str] = None) -> float:

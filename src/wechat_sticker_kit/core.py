@@ -88,7 +88,9 @@ def load_image(path):
     if getattr(im, "n_frames", 1) > 1:
         im.seek(0)
     try:
-        im = ImageOps.exif_transpose(im)
+        rotated = ImageOps.exif_transpose(im)
+        if rotated is not None:      # very old Pillow returned None on some builds
+            im = rotated
     except Exception:  # pragma: no cover - broken EXIF is not fatal
         pass
     return im

@@ -29,6 +29,20 @@ PNG / JPG / **WebP** / **AVIF** / APNG / HEIC / BMP / TIFF / GIF，以及 MP4 / 
 AVIF 从 Pillow 11.3 起原生支持（本机是 12.3），HEIC 需要额外装 pillow-heif。
 扩展名和内容不一致也没关系（比如 CDN 下下来的 xxx.png@406w_270h_1s.avif）——解码靠内容嗅探，输出名会自动去掉 @406w_270h_1s 这类后缀。
 
+## 跨平台
+
+Windows / macOS / Linux 同一套代码，没有平台分支：
+
+| 平台 | Python | 装 ffmpeg（只做视频时才需要） |
+| --- | --- | --- |
+| Windows | python.org 或 Store 均可 | winget install Gyan.FFmpeg |
+| macOS | brew install python | brew install ffmpeg |
+| Linux | 发行版自带的 python3 | sudo apt install ffmpeg / sudo dnf install ffmpeg |
+
+三个平台都是用 pathlib 处理路径，不拼接分隔符；控制台强制 UTF-8 输出，中文路径不会因为 cp936/cp1252 崩掉；ffmpeg 会依次查 PATH、环境变量 WXSTICKER_FFMPEG、imageio-ffmpeg 内置二进制、以及 /opt/homebrew/bin、/usr/local/bin、WinGet Links 这些常见落点。
+
+CI 在 ubuntu / windows / macos 三个 runner 上跑 Python 3.9 到 3.13 的矩阵。
+
 ## 安装
 
 ```bash
