@@ -39,7 +39,7 @@ pip install -e .
 ## 快速开始
 
 ```bash
-# 一张图 -> stickers/meme.png (240x240, PNG, <=5MB)
+# 一张图 -> stickers/meme.gif（单帧静态，原比例，<=1MB）
 wxsticker meme.png
 
 # 整个文件夹，递归，输出到 out/，用 500px 高清、压到 500KB 以内
@@ -55,20 +55,33 @@ wxsticker shot.png -f jpg
 输出示例：
 
 ```text
-meme-2026.png                    -> meme-2026.png          240x240    38.4 KB
-wide-shot.jpg                    -> wide-shot.png          240x240    64.1 KB  [palette reduced to 256 colours]
+meme-2026.png                    -> meme-2026.gif          240x135    29.6 KB
+wide-shot.jpg                    -> wide-shot.gif           240x135    41.2 KB  [palette reduced to 256 colours]
 
 2 sticker(s) written to stickers, 102.5 KB total
 ```
+
+## 为什么默认输出 GIF
+
+实测下来，微信「添加的单个表情」对**动图 GIF 的接受度最稳定**：PNG/JPG 在部分客户端会被判为“图片太大”或直接不入库，而同样内容的 GIF（哪怕只有一帧）都能正常加进去并发送。
+
+所以 0.3.0 起默认就是 GIF：
+
+* 输入图片 → **单帧 GIF**，永远不会动
+* 输入视频 → 多帧 GIF，正常循环
+* 默认 `keep`，保持原比例，**不裁切、不补边**
+* 默认预算 1 MB（动图表情的常见上限）
+
+想回退成 PNG 就加 `-f png`，想要方形就加 `-m cover`。
 
 ## 四种构图模式
 
 | 模式 | 做什么 | 适合 |
 | --- | --- | --- |
-| `cover` | 等比放大铺满方形，裁掉多余部分 | 表情包、梗图（默认） |
+| `keep` | **默认**：保持原比例，不裁不补，只缩到 size | 微信表情首选 |
 | `pad` | 整张图完整保留，左右/上下用**模糊背景**补满 | 横图、截图，不想丢内容 |
 | `fit` | 整张图完整保留，用纯色补满 | 需要干净背景、要抠图时 |
-| `keep` | 不做方形，只把最长边压到 size | 就想原样缩小的图 |
+| `cover` | 等比放大铺满方形，裁掉多余部分 | 想要方形时才用 |
 
 `--anchor` 控制裁切时的重心：`center`（默认）/ `top` / `bottom` / `face`（偏上，人像友好）。
 
@@ -78,9 +91,9 @@ wide-shot.jpg                    -> wide-shot.png          240x240    64.1 KB  [
 | --- | --- | --- |
 | `-o, --out` | `stickers` | 输出目录 |
 | `-s, --size` | `240` | 边长，可选 240 / 500 / 1000 |
-| `-m, --mode` | `cover` | cover / pad / fit / keep |
-| `-f, --format` | `png` | png / jpg / gif |
-| `-b, --budget` | `chat` | `chat`(5MB) / `platform`(500KB) / `tiny`(100KB) / `800kb` 这种写法 |
+| `-m, --mode` | `keep` | keep（原比例）/ cover / pad / fit |
+| `-f, --format` | `gif` | gif（默认）/ png / jpg |
+| `-b, --budget` | `gif` | `gif`(1MB) / `chat`(5MB) / `platform`(500KB) / `tiny`(100KB) |
 | `--max-kb` | — | 直接用 KB 指定上限 |
 | `--bg` | `blur` | pad/fit 的背景：`blur` / `transparent`（透明填充）/ `auto` / `#rrggbb` |
 | `--anchor` | `center` | 裁切重心 |

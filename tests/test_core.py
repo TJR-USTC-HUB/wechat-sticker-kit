@@ -92,26 +92,28 @@ class EncodeTests(unittest.TestCase):
 
 
 class ConvertTests(unittest.TestCase):
-    def test_convert_file_png(self):
+    def test_convert_file_defaults_to_single_frame_gif(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             src = tmp / "photo.jpg"
             make_image(900, 600).save(src, "JPEG")
-            res = convert_file(src, tmp / "out", size=240, mode="cover")
+            res = convert_file(src, tmp / "out", size=240)
             self.assertTrue(res.dst.exists())
-            self.assertEqual(res.dst.suffix, ".png")
-            self.assertEqual((res.width, res.height), (240, 240))
-            self.assertLessEqual(res.size, BUDGETS["chat"])
+            self.assertEqual(res.dst.suffix, ".gif")
+            self.assertLessEqual(res.size, BUDGETS["gif"])
             with Image.open(res.dst) as im:
-                self.assertEqual(im.size, (240, 240))
+                self.assertEqual(im.format, "GIF")
+                self.assertEqual(im.n_frames, 1)          # images never animate
+                self.assertEqual(im.size, (240, 160))     # 600x400 ratio kept, no padding
+            self.assertEqual((res.width, res.height), (240, 160))
 
     def test_in_place_conversion_never_overwrites_the_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
-            src = tmp / "meme.png"
-            make_image(600, 400).save(src)
+            src = tmp / "meme.gif"
+            make_image(600, 400).save(src, "GIF")
             before = src.read_bytes()
-            res = convert_file(src, tmp, size=240, mode="cover")
+            res = convert_file(src, tmp, size=240)
             self.assertNotEqual(res.dst, src)
             self.assertEqual(src.read_bytes(), before)
             self.assertIn("-sticker", res.dst.name)
@@ -135,7 +137,7 @@ class CliTests(unittest.TestCase):
             make_image(400, 600).save(src_dir / "b.jpg", "JPEG")
             rc = main([str(src_dir), "-o", str(tmp / "out"), "-q"])
             self.assertEqual(rc, 0)
-            self.assertEqual(len(list((tmp / "out").glob("*.png"))), 2)
+            self.assertEqual(len(list((tmp / "out").glob("*.gif"))), 2)
 
     def test_cli_json_summary(self):
         import contextlib

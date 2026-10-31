@@ -60,12 +60,14 @@ def _iter_inputs(paths, recursive):
 def build_parser():
     p = argparse.ArgumentParser(
         prog="wxsticker",
-        description="Convert PNG/JPG images and MP4/MOV videos into WeChat-ready stickers "
-                    "(square canvas, 240x240 preset, auto size-limit squeezing).",
+        description="Convert PNG/JPG images and MP4/MOV videos into GIF stickers WeChat accepts: "
+                    "images become a single static frame, videos a looping clip, aspect ratio untouched "
+                    "and the file squeezed under the size limit.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
-            "  wxsticker meme.png\n"
+            "  wxsticker meme.png                     # -> meme.gif, one static frame\n"
+            "  wxsticker meme.png -m cover            # opt-in square crop\n"
             "  wxsticker photos/ -r -o out --size 240 --mode cover --budget platform\n"
             "  wxsticker clip.mp4 -s 240 --fps 12 --duration 3\n"
             "  wxsticker a.jpg b.png -m pad --bg blur -f png\n"
@@ -75,10 +77,12 @@ def build_parser():
     p.add_argument("-o", "--out", default="stickers", help="output folder (default: stickers)")
     p.add_argument("-s", "--size", type=int, default=240, choices=sorted(PRESET_SIZES),
                    help="sticker edge in px, 240 = WeChat standard (default)")
-    p.add_argument("-m", "--mode", default="cover", choices=("cover", "pad", "fit", "keep"),
-                   help="cover = crop to square, pad = blurred backdrop, fit = flat backdrop, keep = no square")
-    p.add_argument("-f", "--format", default="png", choices=OUTPUT_FORMATS,
-                   help="output format for images (default: png); videos are always gif")
+    p.add_argument("-m", "--mode", default="keep", choices=("cover", "pad", "fit", "keep"),
+                   help="keep = keep the original aspect ratio (default, no padding); "
+                        "cover/pad/fit force a square canvas if you really want one")
+    p.add_argument("-f", "--format", default="gif", choices=OUTPUT_FORMATS,
+                   help="output format (default: gif, the only one WeChat accepts reliably); "
+                        "images become a single-frame gif, videos a looping gif")
     p.add_argument("-b", "--budget", default=None, type=_parse_budget,
                    help="byte budget: gif (1 MB), chat (5 MB), platform (500 KB), tiny (100 KB), or 800kb")
     p.add_argument("--max-kb", type=float, default=None, help="shortcut for --budget, in KB")
@@ -131,7 +135,8 @@ def main(argv=None) -> int:
 
     for src in files:
         is_video = src.suffix.lower() in VIDEO_SUFFIXES
-        file_budget = budget if budget is not None else (BUDGETS["gif"] if is_video else BUDGETS["chat"])
+        wants_gif = is_video or args.format == "gif"
+        file_budget = budget if budget is not None else (BUDGETS["gif"] if wants_gif else BUDGETS["chat"])
 
         if args.dry_run:
             suffix = ".gif" if is_video else "." + args.format
