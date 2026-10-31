@@ -162,13 +162,24 @@ def to_square(
 
 
 def _quantize(im: Image.Image, colors: int) -> Image.Image:
+    """Quantize to a GIF palette, reserving one index for full transparency."""
     q = getattr(Image, "Quantize", Image)
     dither = getattr(getattr(Image, "Dither", Image), "FLOYDSTEINBERG", 1)
+
     if _has_alpha(im):
-        return im.convert("RGBA").quantize(
-            colors=colors, method=getattr(q, "FASTOCTREE", 2), dither=dither
-        )
-    return im.convert("RGB").quantize(colors=colors, method=getattr(q, "MEDIANCUT", 0))
+        rgba = im.convert("RGBA")
+        alpha = rgba.split()[-1]
+        if alpha.getextrema()[0] < 128:            # there is something to keep transparent
+            idx = max(2, min(colors, 256)) - 1
+            p = rgba.convert("RGB").quantize(
+                colors=max(2, idx), method=getattr(q, "MEDIANCUT", 0), dither=dither
+            )
+            p.paste(idx, mask=alpha.point(lambda a: 255 if a < 128 else 0))
+            p.info["transparency"] = idx
+            return p
+        im = rgba
+
+    return im.convert("RGB").quantize(colors=colors, method=getattr(q, "MEDIANCUT", 0), dither=dither)
 
 
 def _save_bytes(im: Image.Image, fmt: str, quality=None) -> bytes:
@@ -181,7 +192,11 @@ def _save_bytes(im: Image.Image, fmt: str, quality=None) -> bytes:
         if quality:
             params["quality"] = quality
     elif fmt == "gif":
+        if im.mode != "P":
+            im = _quantize(im, 256)
         params = {"optimize": True}
+        if "transparency" in im.info:
+            params["transparency"] = im.info["transparency"]
     im.save(buf, "JPEG" if fmt == "jpg" else fmt.upper(), **params)
     return buf.getvalue()
 
