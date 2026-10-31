@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wechat-sticker-kit"
+version = "0.1.0"
+description = "Turn any PNG/JPG into a WeChat-ready sticker: square crop, 240x240 preset, automatic size-limit squeezing."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "wechat-sticker-kit contributors" }]
+keywords = ["wechat", "sticker", "emoji", "表情包", "image", "converter", "cli"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+dependencies = ["Pillow>=9.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+wxsticker = "wechat_sticker_kit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/<your-name>/wechat-sticker-kit"
+
+[tool.setuptools.packages.find]
+where = ["src"]
