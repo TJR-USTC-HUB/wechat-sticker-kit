@@ -98,6 +98,17 @@ class ConvertTests(unittest.TestCase):
             with Image.open(res.dst) as im:
                 self.assertEqual(im.size, (240, 240))
 
+    def test_in_place_conversion_never_overwrites_the_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "meme.png"
+            make_image(600, 400).save(src)
+            before = src.read_bytes()
+            res = convert_file(src, tmp, size=240, mode="cover")
+            self.assertNotEqual(res.dst, src)
+            self.assertEqual(src.read_bytes(), before)
+            self.assertIn("-sticker", res.dst.name)
+
     def test_convert_file_unreadable(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)

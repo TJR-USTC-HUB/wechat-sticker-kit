@@ -250,6 +250,8 @@ def convert_file(
     data, note = encode(sticker, fmt=fmt, budget=budget)
 
     dst = out_dir / ("%s%s.%s" % (src.stem, suffix, fmt))
+    if dst.resolve() == src.resolve():  # never eat the file we were given
+        dst = out_dir / ("%s%s-sticker.%s" % (src.stem, suffix, fmt))
     dst.write_bytes(data)
     w, h = sticker.size
     return Result(src=src, dst=dst, width=w, height=h, size=len(data), fmt=fmt, note=note)
