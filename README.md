@@ -1,214 +1,285 @@
 # wechat-sticker-kit
 
-`把任意 PNG / JPG 一键变成微信表情包` —— 方形画布、240×240 标准尺寸、自动压进 5 MB（或 500 KB）以内，支持批量与文件夹递归。
+```把图片和视频变成微信能「添加为表情」的 GIF。```
 
-命令行一条命令，或者 `from wechat_sticker_kit import to_square` 当库用。纯 Pillow，无其它依赖。
+保持原比例、不补边、不裁切，自动压进微信的体积限制。图片输出**单帧静止 GIF**，视频输出循环 GIF。
 
 ![python](https://img.shields.io/badge/python-3.9%2B-blue)
+![platform](https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20linux-lightgrey)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![deps](https://img.shields.io/badge/dependencies-Pillow-orange)
+![tests](https://img.shields.io/badge/tests-24%20passing-brightgreen)
 
 ---
 
-## 为什么需要它
+## 为什么是 GIF
 
-微信对「表情」有自己的一套规则，直接用截图当表情经常踩坑：
+微信「添加的单个表情」在文档上支持 PNG / JPG / GIF，但实测（以及大量用户反馈）**只有 GIF 最稳**：PNG/JPG 即使只有几十 KB，在部分客户端也会被判为“图片太大”或直接不入库；同样内容的 GIF，哪怕只有一帧，都能正常添加和发送。
 
-| 场景 | 格式 | 大小上限 | 尺寸建议 |
-| --- | --- | --- | --- |
-| 聊天里「添加的单个表情」 | PNG / JPG / GIF | 5 MB | 方形，240×240 起 |
-| 微信表情开放平台（发表情包） | PNG / GIF | 主图建议 ≤ 500 KB | 主图 240×240，缩略图 120×120 |
-| 聊天窗里的显示 | — | — | 按比例缩放，太小会糊 |
-
-常见问题：非方形的图在表情列表里被硬裁；原图几 MB 传不上去；透明 PNG 的边被吃掉；手机拍的图带 EXIF 方向翻转 90°。这个工具把这些一次性处理掉。
-
-## 支持的输入
-
-PNG / JPG / **WebP** / **AVIF** / APNG / HEIC / BMP / TIFF / GIF，以及 MP4 / MOV / MKV / WebM 等视频。
-
-AVIF 从 Pillow 11.3 起原生支持（本机是 12.3），HEIC 需要额外装 pillow-heif。
-扩展名和内容不一致也没关系（比如 CDN 下下来的 xxx.png@406w_270h_1s.avif）——解码靠内容嗅探，输出名会自动去掉 @406w_270h_1s 这类后缀。
-
-## 跨平台
-
-Windows / macOS / Linux 同一套代码，没有平台分支：
-
-| 平台 | Python | 装 ffmpeg（只做视频时才需要） |
+| 格式 | 微信加表情的成功率 | 备注 |
 | --- | --- | --- |
-| Windows | python.org 或 Store 均可 | winget install Gyan.FFmpeg |
-| macOS | brew install python | brew install ffmpeg |
-| Linux | 发行版自带的 python3 | sudo apt install ffmpeg / sudo dnf install ffmpeg |
+| GIF | 高，最稳 | 单帧/多帧都行，本工具默认 |
+| PNG | 不稳定 | 部分版本拒绝 |
+| JPG | 不稳定 | 且不支持透明 |
 
-三个平台都是用 pathlib 处理路径，不拼接分隔符；控制台强制 UTF-8 输出，中文路径不会因为 cp936/cp1252 崩掉；ffmpeg 会依次查 PATH、环境变量 WXSTICKER_FFMPEG、imageio-ffmpeg 内置二进制、以及 /opt/homebrew/bin、/usr/local/bin、WinGet Links 这些常见落点。
+所以这个工具默认输出 GIF，但保留 `-f png` / `-f jpg` 给需要的人。
 
-CI 在 ubuntu / windows / macos 三个 runner 上跑 Python 3.9 到 3.13 的矩阵。
+## 特性
+
+- **图片 → 单帧 GIF**：永远不会动，帧数恒为 1
+- **视频 → 循环 GIF**：ffmpeg 解码，Pillow 组装调色板
+- **保持原比例**：默认不裁切、不补边，240×135 就是 240×135
+- **自动压预算**：超限时按“减色板 → 降质量 → 缩尺寸”降级，直到塞进限制
+- **批量与递归**：整个文件夹一次转完，重名自动加 `-2`
+- **文件名清洗**：`xxx.png@406w_270h_1s.avif` 这种 CDN 名会输出成 `xxx.gif`
+- **三种平台同一套代码**：Windows / macOS / Linux，无平台分支
+
+## 环境要求
+
+| 组件 | 版本 | 是否必需 |
+| --- | --- | --- |
+| Python | 3.9+ | 必需 |
+| Pillow | 9.1+ | 必需（AVIF 需要 11.3+） |
+| ffmpeg | 任意近版本 | 仅视频功能需要 |
+| imageio-ffmpeg | 0.4.9+ | 可选，省去自己装 ffmpeg |
+| pillow-heif | 0.13+ | 可选，支持 iPhone 的 HEIC |
 
 ## 安装
 
+### Windows 10 / 11
+
+```powershell
+# 1. 装 Python（已装可跳过）
+winget install -e --id Python.Python.3.12
+
+# 2. 装本工具
+python -m pip install --upgrade pip
+python -m pip install wechat-sticker-kit
+
+# 3. 可选：视频功能需要 ffmpeg
+winget install -e --id Gyan.FFmpeg
+
+# 4. 验证
+wxsticker --version
+```
+
+### macOS
+
 ```bash
+brew install python ffmpeg
+python3 -m pip install wechat-sticker-kit
+wxsticker --version
+```
+
+### Linux（Debian / Ubuntu）
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-pip python3-venv ffmpeg
+python3 -m pip install --user wechat-sticker-kit
+wxsticker --version
+```
+
+如果提示 `externally-managed-environment`，用虚拟环境：
+
+```bash
+python3 -m venv ~/.venvs/sticker
+source ~/.venvs/sticker/bin/activate
 pip install wechat-sticker-kit
 ```
 
-或者从源码装：
+### Fedora / RHEL
+
+```bash
+sudo dnf install -y python3 python3-pip ffmpeg
+python3 -m pip install --user wechat-sticker-kit
+```
+
+### 从源码（要改代码时）
 
 ```bash
 git clone https://github.com/<your-name>/wechat-sticker-kit.git
 cd wechat-sticker-kit
-pip install -e .
+python -m pip install -e .
+```
+
+不装也能跑，加 `PYTHONPATH=src` 然后 `python -m wechat_sticker_kit` 即可。
+
+### 可选组件
+
+```bash
+python -m pip install "wechat-sticker-kit[video]"   # 自带 ffmpeg 二进制
+python -m pip install pillow-heif                    # 支持 HEIC
 ```
 
 ## 快速开始
 
 ```bash
-# 一张图 -> stickers/meme.gif（单帧静态，原比例，<=1MB）
 wxsticker meme.png
+# -> stickers/meme.gif   240x135   1 frame   29.6 KB
 
-# 整个文件夹，递归，输出到 out/，用 500px 高清、压到 500KB 以内
-wxsticker ./photos -r -o out -s 500 -b platform
+wxsticker clip.mp4 --duration 3
+# -> stickers/clip.gif   240x135   36 frames
 
-# 保留整张图不裁切，四周用模糊背景填满
-wxsticker wide.jpg -m pad --bg blur
-
-# 输出 JPG，给不支持透明的地方用
-wxsticker shot.png -f jpg
+wxsticker ./photos -r -o D:/Stickers -s 500
+# 整个目录，500px，输出到 D:/Stickers
 ```
 
-输出示例：
+控制台输出：
 
 ```text
-meme-2026.png                    -> meme-2026.gif          240x135    29.6 KB
-wide-shot.jpg                    -> wide-shot.gif           240x135    41.2 KB  [palette reduced to 256 colours]
+meme.png                    -> meme.gif                  240x135      29.6 KB
+clip.mp4                    -> clip.gif                  240x135      96.1 KB  [36 frames]
 
-2 sticker(s) written to stickers, 102.5 KB total
+2 sticker(s) written to stickers, 125.7 KB total
 ```
 
-## 为什么默认输出 GIF
+## 支持的输入
 
-实测下来，微信「添加的单个表情」对**动图 GIF 的接受度最稳定**：PNG/JPG 在部分客户端会被判为“图片太大”或直接不入库，而同样内容的 GIF（哪怕只有一帧）都能正常加进去并发送。
+**图片**：PNG、JPG、JPEG、WebP、AVIF、APNG、HEIC（需插件）、BMP、TIFF、GIF
+**视频**：MP4、MOV、M4V、MKV、WebM、AVI、WMV、FLV、MPG、MPEG、3GP
 
-所以 0.3.0 起默认就是 GIF：
+扩展名和真实内容不一致也能读（解码靠内容嗅探）。AVIF 由 Pillow 11.3+ 原生支持。
 
-* 输入图片 → **单帧 GIF**，永远不会动
-* 输入视频 → 多帧 GIF，正常循环
-* 默认 `keep`，保持原比例，**不裁切、不补边**
-* 默认预算 1 MB（动图表情的常见上限）
-
-想回退成 PNG 就加 `-f png`，想要方形就加 `-m cover`。
-
-## 四种构图模式
-
-| 模式 | 做什么 | 适合 |
-| --- | --- | --- |
-| `keep` | **默认**：保持原比例，不裁不补，只缩到 size | 微信表情首选 |
-| `pad` | 整张图完整保留，左右/上下用**模糊背景**补满 | 横图、截图，不想丢内容 |
-| `fit` | 整张图完整保留，用纯色补满 | 需要干净背景、要抠图时 |
-| `cover` | 等比放大铺满方形，裁掉多余部分 | 想要方形时才用 |
-
-`--anchor` 控制裁切时的重心：`center`（默认）/ `top` / `bottom` / `face`（偏上，人像友好）。
-
-## 参数
+## 命令行参数
 
 | 参数 | 默认 | 说明 |
 | --- | --- | --- |
 | `-o, --out` | `stickers` | 输出目录 |
-| `-s, --size` | `240` | 边长，可选 240 / 500 / 1000 |
+| `-s, --size` | `240` | 长边像素，可选 240 / 500 / 1000 |
 | `-m, --mode` | `keep` | keep（原比例）/ cover / pad / fit |
-| `-f, --format` | `gif` | gif（默认）/ png / jpg |
-| `-b, --budget` | `gif` | `gif`(1MB) / `chat`(5MB) / `platform`(500KB) / `tiny`(100KB) |
+| `-f, --format` | `gif` | gif / png / jpg，视频恒为 gif |
+| `-b, --budget` | `gif` | gif(1MB) / chat(5MB) / platform(500KB) / tiny(100KB) / 800kb |
 | `--max-kb` | — | 直接用 KB 指定上限 |
-| `--bg` | `blur` | pad/fit 的背景：`blur` / `transparent`（透明填充）/ `auto` / `#rrggbb` |
-| `--anchor` | `center` | 裁切重心 |
-| `-r, --recursive` | 关 | 递归子文件夹 |
-| `--dry-run` | 关 | 只看会输出什么，不写文件 |
-| `--json` | 关 | 输出机器可读的汇总，方便脚本调用 |
+| `--bg` | `blur` | pad/fit 的背景：blur / transparent / auto / #rrggbb |
+| `--anchor` | `center` | 方形裁切重心：center / top / bottom / face |
+| `-r, --recursive` | 关 | 递归子目录 |
+| `--dry-run` | 关 | 只打印计划，不写文件 |
+| `--json` | 关 | 输出机器可读的汇总 |
+| `-q, --quiet` | 关 | 只输出错误 |
+| `--fps` | `12` | 视频抽帧帧率 |
+| `--start` | `0` | 视频起点（秒） |
+| `--duration` | 至多 5 秒 | 截取时长（秒） |
+| `--no-dither` | 关 | 关抖动，体积更小但可能色带 |
+| `--version` | — | 版本号 |
 
-超限时的降级顺序（自动，按顺序尝试）：直接保存 → 减色板 256/128/64/32 色 → 降 JPEG 质量 88→40 → 逐步缩小 10%，直到塞进预算。返回的 `note` 会写明牺牲了什么。
+## 四种构图模式
 
-## 视频转 GIF 表情
-
-视频默认走 GIF 通道（微信的动图表情上限通常按 1 MB 算，工具会自动压到这个预算内）。
+| 模式 | 行为 | 适用 |
+| --- | --- | --- |
+| `keep` | **默认**，保持原比例，只缩到 size | 微信表情首选 |
+| `cover` | 等比铺满方形，裁掉溢出 | 想要正方形时 |
+| `pad` | 原图完整保留，四周补背景 | 横图转方形 |
+| `fit` | 原图完整保留，补纯色 | 需要干净底色 |
 
 ```bash
-wxsticker clip.mp4                       # 前 5 秒 -> stickers/clip.gif，240 宽，12fps
-wxsticker clip.mp4 --start 3.2 --duration 2.5 --fps 15
-wxsticker clip.mov -s 240 --no-dither     # 关抖动，更小但可能有色带
+wxsticker wide.jpg -m pad --bg transparent   # 方形 + 透明填充
+wxsticker meme.png -m cover                  # 方形 + 裁切
 ```
 
-需要 `ffmpeg`：装了 `imageio-ffmpeg` 的话会自动用它内置的二进制；都没有就 `pip install "wechat-sticker-kit[video]"`，或者用 `WXSTICKER_FFMPEG=/path/to/ffmpeg` 指定。
+## 体积预算与降级
 
-解码交给 ffmpeg，调色板和 GIF 组装由 Pillow 负责——这样帧数、颜色数、抖动都在我们手里，能保证输出一定塞进预算。压不下时的降级顺序：减色板 → 隔帧丢弃 → 缩放。
-
-## 加不进表情？先看这个
-
-| 现象 | 大概率原因 | 处理 |
+| 预算名 | 字节 | 对应场景 |
 | --- | --- | --- |
-| 长按图片没有「添加到表情」 | 图是以**文件**形式发的，不是图片消息 | 先发出去（当图片发），再长按 |
-| 「添加的单个表情」里选不到 | 从相册选，文件传输助手的图没进相册 | 长按图片 → 保存到相册，再去选 |
-| 提示图片太大 | 静态图个别版本限制很严（远低于 5 MB） | `-b tiny` 压到 100 KB 以内 |
-| 添加后变形/被裁 | 非正方形被面板按方形显示 | 用 `-m pad` 或 `-m cover` 输出正方形 |
-| GIF 变成静图 | 超过动图体积上限 | `-b gif`（1 MB）或降低 `--fps` |
+| `gif` | 1 MB | 动图表情常见上限（默认） |
+| `chat` | 5 MB | 微信官方静态表情上限 |
+| `platform` | 500 KB | 微信表情开放平台主图建议 |
+| `tiny` | 100 KB | 极限压缩 |
 
-## 当库用
+超限时的自动降级顺序：减色板 256→128→64→32 色 → 降 JPEG 质量 88→40 → 每轮缩小 10%。返回的 `note` 会写明牺牲了什么。
+
+## 视频转 GIF
+
+```bash
+wxsticker clip.mp4                          # 前 5 秒，12fps，240 宽
+wxsticker clip.mp4 --start 3.2 --duration 2.5 --fps 15
+wxsticker clip.mov -s 240 --no-dither
+```
+
+ffmpeg 的查找顺序：PATH → 环境变量 `WXSTICKER_FFMPEG` → imageio-ffmpeg 内置 → 常见安装路径（/opt/homebrew/bin、/usr/local/bin、WinGet Links 等）。
+
+调色板是整段共用的，避免逐帧自适应造成的闪烁。
+
+## Python API
 
 ```python
-from PIL import Image
-from wechat_sticker_kit import to_square, encode
+from wechat_sticker_kit import to_square, encode, video_to_gif, load_image
 
-im = Image.open("meme.png")
-sticker = to_square(im, size=240, mode="pad", bg="blur")   # 240x240 RGBA
-data, note = encode(sticker, fmt="png", budget=500 * 1024)
-open("sticker.png", "wb").write(data)
+# 图片
+im = to_square(load_image("meme.png"), size=240, mode="keep")
+data, note = encode(im, fmt="gif", budget=1024 * 1024)
+open("meme.gif", "wb").write(data)
 print(note or "no compression needed")
+
+# 视频
+video_to_gif("clip.mp4", "clip.gif", size=240, fps=12, duration=3)
 ```
 
-## 微信里怎么用
+## 微信端：从文件到表情
 
-1. 手机微信 → 文件传输助手 → 发送转换后的图；
-2. 在聊天里长按图片 → **添加到表情**；
-3. 之后在输入框的表情面板里就能直接发。
+1. 把生成的 GIF **当图片消息**发出去（拖进输入框是发文件，要的是图片）
+2. 在聊天里长按该图 → **添加到表情**
+3. 我 → 表情 → 设置 → 添加的单个表情，能看到它
+4. 之后在表情面板最右侧的爱心分类里就能直接发
 
-> 动图（GIF）会被当作静态表情处理——微信「添加的单个表情」本身支持 GIF 播放，但本工具默认只取第一帧，避免一张图变成几 MB。
+| 现象 | 原因 | 解决 |
+| --- | --- | --- |
+| 长按没有“添加到表情” | 发成了文件消息 | 用图片按钮发，或直接粘贴 |
+| 加不进去 | 格式/体积/形状不合 | 用本工具默认参数输出的 GIF |
+| 添加后不动 | 本身就是单帧 | 正常，图片转 GIF 就是静止的 |
+| 显示有白边 | 客户端合成了透明底 | 改 `--bg auto` 用边缘色填充 |
 
-## 常见问题
+## 故障排查
 
-**为什么默认 240？** 微信表情开放平台的主图标准就是 240×240；聊天里添加的表情按比例显示，240 已经够清晰，500 更保险但体积翻几倍。
-
-**透明背景会丢吗？** `cover` / `keep` 保留 alpha；`pad` / `fit` 本来就铺了不透明底；输出 `jpg` 时会自动压白底。
-
-**为什么我的图被减色了？** 说明原图在这个预算下存不进 PNG，工具按上面的降级顺序处理，`note` 里会写原因。不想被减色就用 `-b chat` 或 `--max-kb 5000`。
-
-**能批量做成一套表情包吗？** 可以：`wxsticker ./raw -r -o pack -s 240 -b platform`，再把 `pack/` 里的图按开放平台要求上传。
-
-## English
-
-Convert PNG/JPG images **and videos** into WeChat-ready stickers: square canvas, 240×240 preset, video→GIF (ffmpeg), automatic squeezing under the 1 MB / 5 MB / 500 KB budget, batch mode, EXIF-corrected, metadata stripped.
-
-```bash
-pip install wechat-sticker-kit
-wxsticker meme.png                      # -> stickers/meme.png (240x240, PNG, <=5MB)
-wxsticker ./photos -r -s 500 -b platform --mode pad
-```
-
-Modes: `cover` (crop to square), `pad` (blurred backdrop, nothing lost), `fit` (flat backdrop), `keep` (no square).
-Library use: `to_square(im, 240, mode="pad")` + `encode(sticker, "png", budget)`.
+| 报错 | 原因 | 解决 |
+| --- | --- | --- |
+| `ffmpeg not found` | 没装或不在 PATH | 装 ffmpeg，或 `pip install "wechat-sticker-kit[video]"` |
+| `cannot read image` | 格式不支持或文件损坏 | 确认是图片；HEIC 需 `pillow-heif` |
+| `ModuleNotFoundError: PIL` | 没装 Pillow | `pip install Pillow` |
+| 输出被减色 | 预算太紧 | 提高 `-b` 或 `--max-kb` |
+| 中文路径乱码 | 老终端编码 | 工具已强制 UTF-8；仍乱码就用 Windows Terminal |
 
 ## 项目结构
 
 ```text
-src/wechat_sticker_kit/core.py   # 构图 + 编码 + 预算压缩
-src/wechat_sticker_kit/cli.py    # 命令行
-tests/test_core.py               # 15 个 unittest，无需额外依赖
+src/wechat_sticker_kit/
+  core.py     构图、调色板、编码、预算压缩
+  video.py    ffmpeg 抽帧 + GIF 组装
+  cli.py      命令行
+tests/test_core.py   24 个 unittest
+scripts/smoke.py     端到端冒烟检查
 ```
+
+## 开发与测试
+
+```bash
+python -m unittest discover -s tests -v   # 24 个单元测试
+python scripts/smoke.py                   # 8 项端到端检查
+```
+
+CI 在 ubuntu / windows / macos 三个平台跑 Python 3.9 到 3.13 的矩阵。
+
+## 跨平台说明
+
+| 平台 | Python | ffmpeg |
+| --- | --- | --- |
+| Windows | 3.9+ | winget install Gyan.FFmpeg |
+| macOS | 3.9+（brew） | brew install ffmpeg |
+| Linux | 3.9+ | apt / dnf install ffmpeg |
+
+路径全部用 pathlib，不拼分隔符；标准输出强制 UTF-8，中文路径不会因为 cp936/cp1252 崩掉。
+
+## English
+
+Convert images and videos into GIF stickers that WeChat actually accepts.
+
+```bash
+pip install wechat-sticker-kit
+wxsticker meme.png          # -> stickers/meme.gif  (240px, single frame, <1MB)
+wxsticker clip.mp4          # -> stickers/clip.gif  (looping)
+```
+
+Images become a single-frame GIF, videos a looping one. Aspect ratio is preserved (no padding, no crop) unless you ask for `-m cover` / `-m pad`. Everything is squeezed under a byte budget automatically.
 
 ## License
 
-MIT © 2026 wechat-sticker-kit contributors
-
-## 贡献
-
-欢迎提 issue 和 PR。跑测试只需要 stdlib：
-
-```bash
-python -m unittest discover -s tests -v
-```
-
+MIT
